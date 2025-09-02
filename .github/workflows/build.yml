@@ -1,0 +1,120 @@
+name: Build USB Analyzer
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
+        ubuntu-version: [20.04, 22.04]
+    
+    name: Build with ${{ matrix.compiler }} on Ubuntu ${{ matrix.ubuntu-version }}
+    
+    container:
+      image: ubuntu:${{ matrix.ubuntu-version }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        apt-get update
+        apt-get install -y build-essential pkg-config libusb-1.0-0-dev
+        if [ "${{ matrix.compiler }}" = "clang" ]; then
+          apt-get install -y clang
+        fi
+    
+    - name: Set compiler
+      run: |
+        if [ "${{ matrix.compiler }}" = "clang" ]; then
+          echo "CC=clang" >> $GITHUB_ENV
+        else
+          echo "CC=gcc" >> $GITHUB_ENV
+        fi
+    
+    - name: Check dependencies
+      run: make check-deps
+    
+    - name: Build analyzer
+      run: make build
+    
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: usb-analyzer-${{ matrix.compiler }}-ubuntu${{ matrix.ubuntu-version }}
+        path: usb_bos_webusb_msos20_analyzer
+        retention-days: 30
+    
+    - name: Test clean
+      run: |
+        make clean
+        test ! -f usb_bos_webusb_msos20_analyzer
+
+  static-analysis:
+    runs-on: ubuntu-latest
+    name: Static Analysis
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential pkg-config libusb-1.0-0-dev
+        sudo apt-get install -y cppcheck clang-tools
+    
+    - name: Run cppcheck
+      run: |
+        cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem \
+          --suppress=unusedFunction usb_bos_webusb_msos20_analyzer.c
+    
+    - name: Run clang static analyzer
+      run: |
+        clang --analyze -Xanalyzer -analyzer-output=text usb_bos_webusb_msos20_analyzer.c
+    
+    - name: Check for compiler warnings
+      run: |
+        gcc -Wall -Wextra -Werror -fsyntax-only usb_bos_webusb_msos20_analyzer.c
+
+  release:
+    needs: [build, static-analysis]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    name: Create Release Build
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential pkg-config libusb-1.0-0-dev
+    
+    - name: Build release version
+      run: |
+        make clean
+        make CFLAGS="-Wall -Wextra -O3 -DNDEBUG -std=c99" build
+        strip usb_bos_webusb_msos20_analyzer
+    
+    - name: Create tarball
+      run: |
+        tar -czf usb-bos-webusb-msos20-analyzer-linux.tar.gz \
+          usb_bos_webusb_msos20_analyzer README.md Makefile
+    
+    - name: Upload release artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: usb-analyzer-release-linux
+        path: usb-bos-webusb-msos20-analyzer-linux.tar.gz
+        retention-days: 90
