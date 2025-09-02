@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         compiler: [gcc, clang]
-        ubuntu-version: [20.04, 22.04]
+        ubuntu-version: [22.04]
     
     name: Build with ${{ matrix.compiler }} on Ubuntu ${{ matrix.ubuntu-version }}
     
@@ -76,7 +76,7 @@ jobs:
     - name: Run cppcheck
       run: |
         cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem \
-          --suppress=unusedFunction usb_bos_webusb_msos20_analyzer.c
+          --check-level=exhaustive usb_bos_webusb_msos20_analyzer.c
     
     - name: Run clang static analyzer
       run: |

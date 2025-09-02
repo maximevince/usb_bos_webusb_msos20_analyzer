@@ -73,7 +73,7 @@ static void parse_bos_descriptor(unsigned char *data, int length) {
         return;
     }
     
-    struct usb_bos_descriptor *bos = (struct usb_bos_descriptor *)data;
+    const struct usb_bos_descriptor *bos = (const struct usb_bos_descriptor *)data;
     
     printf("BOS Header:\n");
     printf("  bLength: %d\n", bos->bLength);
@@ -114,7 +114,7 @@ static void parse_bos_descriptor(unsigned char *data, int length) {
         printf("  bDevCapabilityType: 0x%02x\n", cap_capability_type);
         
         if (cap_capability_type == USB_PLAT_DEV_CAP_TYPE && offset + (int)sizeof(struct usb_plat_dev_cap_descriptor) <= length) {
-            struct usb_plat_dev_cap_descriptor *plat_cap = (struct usb_plat_dev_cap_descriptor *)(data + offset);
+            const struct usb_plat_dev_cap_descriptor *plat_cap = (const struct usb_plat_dev_cap_descriptor *)(data + offset);
             char uuid_str[37];
             uuid_to_string(plat_cap->UUID, uuid_str);
             
@@ -189,7 +189,7 @@ static void parse_bos_descriptor(unsigned char *data, int length) {
     printf("\n");
 }
 
-static void parse_webusb_url_descriptor(unsigned char *data, int length) {
+static void parse_webusb_url_descriptor(const unsigned char *data, int length) {
     printf("=== WebUSB URL Descriptor ===\n");
     printf("Length: %d bytes\n", length);
     
@@ -207,7 +207,7 @@ static void parse_webusb_url_descriptor(unsigned char *data, int length) {
            bDescriptorType == WEBUSB_URL_DESCRIPTOR_TYPE ? "WebUSB URL" : "UNKNOWN");
     printf("bScheme: %d (", bScheme);
     
-    const char *scheme_prefix = "";
+    const char *scheme_prefix;
     switch (bScheme) {
         case WEBUSB_URL_SCHEME_HTTP:
             printf("HTTP)\n");
@@ -237,7 +237,7 @@ static void parse_webusb_url_descriptor(unsigned char *data, int length) {
     printf("\n");
 }
 
-static void parse_msos20_descriptor(unsigned char *data, int length) {
+static void parse_msos20_descriptor(const unsigned char *data, int length) {
     int offset = 0;
     int error_count = 0;
     int warning_count = 0;
@@ -499,7 +499,7 @@ static void parse_msos20_descriptor(unsigned char *data, int length) {
     printf("\n");
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, const char * const argv[]) {
     libusb_device_handle *handle;
     unsigned char buffer[512];
     int result;
@@ -563,7 +563,7 @@ int main(int argc, char *argv[]) {
     // First, fetch the BOS descriptor
     printf("=== Fetching BOS Descriptor ===\n");
     result = libusb_control_transfer(handle, LIBUSB_ENDPOINT_IN, LIBUSB_REQUEST_GET_DESCRIPTOR, 
-                                   (USB_DT_BOS << 8) | 0, 0, buffer, sizeof(buffer), 5000);
+                                   (USB_DT_BOS << 8), 0, buffer, sizeof(buffer), 5000);
     
     if (result > 0) {
         printf("SUCCESS: BOS descriptor retrieved (%d bytes)\n\n", result);
